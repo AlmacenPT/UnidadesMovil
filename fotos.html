@@ -23,13 +23,13 @@ margin-bottom:10px;
 input{
 padding:10px;
 margin:5px;
-font-size:30px;
+font-size:26px;
 }
 
 button{
 padding:10px;
 margin:5px;
-font-size:26px;
+font-size:20px;
 }
 
 
@@ -81,8 +81,6 @@ color:white;
 padding:5px 8px;
 border-radius:4px;
 cursor:pointer;
-width:40px;
-height:40px;
 }
 
 #progress{
@@ -121,7 +119,7 @@ max-height:90%;
 input[type="file"]::file-selector-button{
 height:100px;
 padding:0 20px;
-font-size:26px;
+font-size:20px;
 background:#3498db;
 color:white;
 border:none;
@@ -146,7 +144,7 @@ margin-right:10px;
 
 <br>
 
-<input id="foto" type="file" accept="image/*" capture="environment" multiple>
+<input id="foto" type="file" accept="image/*" capture="environment">
 
 <button id="btnSubir" onclick="subir()">Subir Foto</button>
 
@@ -306,16 +304,17 @@ buscar()
 async function reducirImagen(file){
 
 const img=new Image()
-const reader=new FileReader()
+const url = URL.createObjectURL(file)
 
-reader.onload=e=>img.src=e.target.result
-reader.readAsDataURL(file)
+img.src = url
 
 await new Promise(r=>img.onload=r)
 
+URL.revokeObjectURL(url)
+
 const canvas=document.createElement("canvas")
 
-const max=800
+const max=500
 
 let w=img.width
 let h=img.height
@@ -343,7 +342,10 @@ const ctx=canvas.getContext("2d")
 
 ctx.drawImage(img,0,0,w,h)
 
-return new Promise(r=>canvas.toBlob(r,"image/jpeg",0.7))
+return new Promise(r=>canvas.toBlob(r,"image/jpeg",0.5))
+
+canvas.width = 0
+canvas.height = 0
 
 }
 
