@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Registro de Rutas</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+
+<style>
+body{
+    font-family: Arial;
+    margin:10px;
+    font-size:36px;
+}
+
+input,select,button{
+padding:6px;
+margin:5px;
+font-size:36px;
+}
+
+table{
+    border-collapse: collapse;
+    margin-top:10px;
+    width:auto;
+    font-size:40px;
+}
+th,td{
+    border:1px solid #ccc;
+    padding:6px 10px;
+    text-align:center;
+    white-space:nowrap;
+}
+tr{
+    height:140px;
+}
+th{
+    background:#f0f0f0;
+}
+
+/* Segunda columna (Placa) en negrita */
+td:nth-child(2),
+th:nth-child(2){
+    font-weight:bold;
+}
+
+.btn-fotos{
+    background:#3498db;
+    color:white;
+    border:none;
+    padding:4px 8px;
+    border-radius:4px;
+    cursor:pointer;
+    height:60px;
+}
+</style>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+</head>
+
+<body>
+
+<h3>Registro de fotos</h3>
+
+Fecha
+<input type="date" id="fecha">
+
+<br><br>
+
+<table id="tabla">
+<thead>
+<tr>
+<th>N°</th>
+<th>Placa</th>
+<th>Fotos</th>
+<th>Ir Fotos</th>
+</tr>
+</thead>
+
+<tbody></tbody>
+
+</table>
+
+
+<script>
+	let modoAdmin = false
+
+const clienteSupabase = window.supabase.createClient(
+"https://hwjhemjgyducdnxbahak.supabase.co",
+"sb_publishable_vDgKuupqEqGzLe8Eot0JVg_osYFTOMn"
+)
+
+// FECHA HOY
+function fechaPeru(){
+
+const ahora = new Date()
+
+const peru = new Date(
+ahora.toLocaleString("en-US",{timeZone:"America/Lima"})
+)
+
+const yyyy = peru.getFullYear()
+const mm = String(peru.getMonth()+1).padStart(2,'0')
+const dd = String(peru.getDate()).padStart(2,'0')
+
+return `${yyyy}-${mm}-${dd}`
+
+}
+
+let fechaGuardada = localStorage.getItem("fechaSeleccionada")
+
+if(fechaGuardada){
+document.getElementById("fecha").value = fechaGuardada
+}else{
+document.getElementById("fecha").value = fechaPeru()
+}
+
+cargarRegistros()
+
+document.getElementById("fecha").addEventListener("change",cargarRegistros)
+
+
+// CARGAR REGISTROS
+async function cargarRegistros(){
+
+    let fecha = document.getElementById("fecha").value
+
+    const {data,error} = await clienteSupabase
+        .from("vista_rutas_con_fotos")
+        .select("*")
+        .eq("fecha",fecha)
+        .order("id",{ascending:true})
+
+    if(error){
+        console.log(error)
+        return
+    }
+
+    let tbody = document.querySelector("#tabla tbody")
+    tbody.innerHTML=""
+
+    let contador = 1
+
+    for(const reg of data){
+
+        let fila = `
+        <tr>
+            <td>${contador}</td>
+            <td>${reg.placa}</td>
+            <td>${reg.fotos || 0}</td>
+            <td>
+                <button class="btn-fotos" onclick="abrirFotos('${reg.placa}','${reg.fecha}')">📷 Fotos</button>
+            </td>
+
+
+
+        </tr>
+        `
+
+        tbody.innerHTML += fila
+        contador++
+    }
+
+}
+
+// ABRIR PAGINA FOTOS
+function abrirFotos(placa,fecha){
+
+    localStorage.setItem("fechaSeleccionada",fecha)
+
+    window.location = `fotos.html?placa=${placa}&fecha=${fecha}`
+
+}
+
+</script>
+
+</body>
+</html>
