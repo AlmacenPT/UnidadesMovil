@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+<meta charset="UTF-8">
+<title>Registro Fotos Vehículos</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+
+body{
+font-family:Arial;
+background:#f2f2f2;
+padding:20px;
+}
+
+h3{
+margin-bottom:10px;
+}
+
+input{
+padding:10px;
+margin:5px;
+font-size:14px;
+}
+
+button{
+padding:10px;
+margin:5px;
+font-size:20px;
+}
+
+
+button{
+background:#3498db;
+color:white;
+border:none;
+border-radius:6px;
+cursor:pointer;
+height:60px;
+}
+
+button:disabled{
+background:#95a5a6;
+}
+
+#contador{
+font-weight:bold;
+margin-top:10px;
+}
+
+.galeria{
+display:grid;
+grid-template-columns:1fr 1fr;
+gap:12px;
+margin-top:20px;
+}
+
+.card{
+position:relative;
+background:white;
+border-radius:10px;
+overflow:hidden;
+box-shadow:0 2px 6px rgba(0,0,0,0.2);
+}
+
+.card img{
+width:100%;
+display:block;
+}
+
+.btn-eliminar{
+position:absolute;
+top:6px;
+right:6px;
+background:#e74c3c;
+border:none;
+color:white;
+padding:5px 8px;
+border-radius:4px;
+cursor:pointer;
+}
+
+#progress{
+width:100%;
+background:#ddd;
+height:10px;
+border-radius:5px;
+margin-top:10px;
+display:none;
+}
+
+#bar{
+height:10px;
+width:0%;
+background:#27ae60;
+border-radius:5px;
+}
+
+#visor{
+position:fixed;
+top:0;
+left:0;
+width:100%;
+height:100%;
+background:rgba(0,0,0,0.9);
+display:none;
+align-items:center;
+justify-content:center;
+}
+
+#visor img{
+max-width:90%;
+max-height:90%;
+}
+
+input[type="file"]::file-selector-button{
+height:60px;
+padding:0 20px;
+font-size:20px;
+background:#3498db;
+color:white;
+border:none;
+border-radius:6px;
+cursor:pointer;
+margin-right:10px;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<h3>Registro de Fotos Vehículo</h3>
+
+<label>Placa</label>
+<input id="placa" readonly>
+
+<label>Fecha</label>
+<input id="fecha" type="date" readonly>
+
+<br>
+
+<input id="foto" type="file" accept="image/*" capture="environment" multiple>
+
+<button id="btnSubir" onclick="subir()">Subir Foto</button>
+
+<p id="contador">Fotos: 0 / 4</p>
+
+<div id="progress">
+<div id="bar"></div>
+</div>
+
+<div class="galeria" id="galeria"></div>
+
+<div id="visor" onclick="cerrarZoom()">
+<img id="imgZoom">
+</div>
+
+<script>
+
+const supabaseUrl="https://hwjhemjgyducdnxbahak.supabase.co"
+const supabaseKey="sb_publishable_vDgKuupqEqGzLe8Eot0JVg_osYFTOMn"
+
+const clienteSupabase=supabase.createClient(supabaseUrl,supabaseKey)
+
+let totalFotos=0
+
+const params=new URLSearchParams(window.location.search)
+
+const placaURL=params.get("placa")
+const fechaURL=params.get("fecha")
+
+document.getElementById("placa").value=placaURL
+document.getElementById("fecha").value=fechaURL
+
+buscar()
+
+async function buscar(){
+
+const {data}=await clienteSupabase
+.from("fotos")
+.select("*")
+.eq("placa",placaURL)
+.eq("fecha",fechaURL)
+
+const galeria=document.getElementById("galeria")
+
+galeria.innerHTML=""
+
+totalFotos=data.length
+
+document.getElementById("contador").innerText=
+"Fotos: "+totalFotos+" / 4"
+
+data.forEach(f=>{
+
+galeria.innerHTML+=`
+
+<div class="card">
+
+<img src="${f.url}" onclick="zoom('${f.url}')">
+
+<button class="btn-eliminar"
+onclick="eliminarFoto('${f.id}','${f.url}')">
+X
+</button>
+
+</div>
+
+`
+
+})
+
+}
+
+function zoom(url){
+
+document.getElementById("visor").style.display="flex"
+document.getElementById("imgZoom").src=url
+
+}
+
+function cerrarZoom(){
+
+document.getElementById("visor").style.display="none"
+
+}
+
+async function subir(){
+
+const files=document.getElementById("foto").files
+
+if(files.length===0){
+alert("Seleccione foto")
+return
+}
+
+if(totalFotos>=4){
+alert("Máximo 4 fotos")
+return
+}
+
+const btn=document.getElementById("btnSubir")
+
+btn.disabled=true
+btn.innerText="Subiendo..."
+
+document.getElementById("progress").style.display="block"
+
+for(let i=0;i<files.length;i++){
+
+if(totalFotos>=4) break
+
+const file=files[i]
+
+const blob=await reducirImagen(file)
+
+const nombre=Date.now()+"_"+i+".jpg"
+
+await clienteSupabase
+.storage
+.from("imagenes")
+.upload(nombre,blob)
+
+const {data:urlData}=clienteSupabase
+.storage
+.from("imagenes")
+.getPublicUrl(nombre)
+
+await clienteSupabase
+.from("fotos")
+.insert([{
+
+placa:placaURL,
+fecha:fechaURL,
+url:urlData.publicUrl
+
+}])
+
+totalFotos++
+
+const progreso=Math.round(((i+1)/files.length)*100)
+
+document.getElementById("bar").style.width=progreso+"%"
+
+}
+
+document.getElementById("foto").value=""
+
+btn.disabled=false
+btn.innerText="Subir Foto"
+
+document.getElementById("progress").style.display="none"
+document.getElementById("bar").style.width="0%"
+
+buscar()
+
+}
+
+async function reducirImagen(file){
+
+const img=new Image()
+const reader=new FileReader()
+
+reader.onload=e=>img.src=e.target.result
+reader.readAsDataURL(file)
+
+await new Promise(r=>img.onload=r)
+
+const canvas=document.createElement("canvas")
+
+const max=800
+
+let w=img.width
+let h=img.height
+
+if(w>h){
+
+if(w>max){
+h=h*(max/w)
+w=max
+}
+
+}else{
+
+if(h>max){
+w=w*(max/h)
+h=max
+}
+
+}
+
+canvas.width=w
+canvas.height=h
+
+const ctx=canvas.getContext("2d")
+
+ctx.drawImage(img,0,0,w,h)
+
+return new Promise(r=>canvas.toBlob(r,"image/jpeg",0.7))
+
+}
+
+async function eliminarFoto(id,url){
+
+if(!confirm("¿Eliminar foto?")) return
+
+const nombre=url.split("/").pop()
+
+await clienteSupabase
+.storage
+.from("imagenes")
+.remove([nombre])
+
+await clienteSupabase
+.from("fotos")
+.delete()
+.eq("id",id)
+
+buscar()
+
+}
+
+</script>
+
+</body>
+
+</html>
